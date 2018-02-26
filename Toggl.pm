@@ -62,12 +62,23 @@ sub new {
         my $self  = {};
         bless($self,$class);
 
-	my(%defaults) = ( weekformat => "%V" );
+	my(%defaults) = ( weekformat => "%V", togglhome => "$ENV{HOME}/.toggl" );
         my(%hash) = ( %defaults, @_) ;
         while ( my($key,$val) = each(%hash) ) {
                 $self->set($key,$val);
         }
 	$self->currweek($self->week());
+	if ( defined($ENV{TOGGLPROJ}) ) {
+		$self->togglproj($ENV{TOGGLPROJ});
+	}
+
+	unless ( $self->togglhome() ) {
+		croak "togglhome is not defined\n";
+	}
+
+	unless ( $self->togglproj() ) {
+		$self->togglproj($self->togglhome());
+	}
 
         return($self);
 }
@@ -81,19 +92,26 @@ sub debug {
 	return  unless ( $debug );
 	return  unless ( $debug >= $level );
 	chomp($str);
-	print "** DEBUG: " . localtime(time) . " $str\n";
+	print "DEBUG($level): " . localtime(time) . " $str ***\n";
 }
 
-sub currweek {
+sub _accessor {
 	my($self) = shift;
-	my($set) = shift;
-	if ( defined($set) ) {
-		return ($self->set("_currweek",$set));
+	my($key) = shift;
+	my($value) = shift;
+	if ( defined($value) ) {
+		$self->debug(9,"Setting $key to $value");
+		return ($self->set($key,$value));
 	}
 	else {
-		return ($self->get("_currweek"));
+		return ($self->get($key));
 	}
 }
+	
+
+sub currweek { return ( shift->_accessor("_currweek",shift) ); }
+sub togglhome { return ( shift->_accessor("togglhome",shift) ); }
+sub togglproj { return ( shift->_accessor("togglproj",shift) ); }
 
 sub week {
 	my($self) = shift;
@@ -101,5 +119,17 @@ sub week {
 	$sec = time unless ( defined $sec );
 	my($week) =  POSIX::strftime($self->get("weekformat"),localtime($sec));
 	return ( sprintf("%02.2d",$week) );
+}
+
+sub readprojfiles {
+	my($self) = shift;
+	my($projdir);
+	foreach $projdir ( split(/:/,$self->togglproj() ) ) {
+		$self->debug(5,"projdir=$projdir");
+		my($projfile);
+		foreach $projfile ( <$projdir/*.proj> ) {
+			$self->debug(5,"projfile=$projfile");
+		}
+	}
 }
 1;

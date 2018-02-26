@@ -7,7 +7,7 @@ use Toggl;
 
 my($start);
 my($end);
-my($debug);
+my($debug) = 9;
 GetOptions (
 	"start=i" => \$start,
 	"end=i" => \$end,
@@ -43,4 +43,6 @@ if ( $start > $end ) {
 print Dumper(\$toggl);
 
 print "week=$week\n";
+
+$toggl->readprojfiles();
 
