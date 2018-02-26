@@ -1,15 +1,15 @@
-# 
-# put this file in ~/.toggl/my.proj
-#
 id=100
-comment=my first proj
+comment=1234567890 project0
 
 id=101
-comment=som other projetc
-enable=no
+comment=2345678901 project1
 
 id=102
-comment=som proj
-enable=yes
+comment=3456789012 project2
 
+id=103
+comment=4567890123 project3
+
+id=104
+comment=5678901234 project4
 
