@@ -121,9 +121,33 @@ sub week {
 	return ( sprintf("%02.2d",$week) );
 }
 
+sub readfile {
+	my($self) = shift;
+	my($file) = shift;
+	my(@content) = ();
+
+	if ( open(IN,"<$file") ) {
+		foreach ( <IN> ) {
+			chomp;
+			push(@content,$_);
+		}
+		close(IN);
+	}
+	return(@content);
+}	
+
+sub readprojfile {
+	my($self) = shift;
+	my($file) = shift;
+	my(@content) = $self->readfile($file);
+	return(@content);
+}
+	
+
 sub readprojfiles {
 	my($self) = shift;
 	my($projdir);
+	my($projects) = 0;
 	foreach $projdir ( split(/:/,$self->togglproj() ) ) {
 		$self->debug(5,"projdir=$projdir");
 		my($projfile);
