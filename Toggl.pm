@@ -62,12 +62,17 @@ sub new {
         my $self  = {};
         bless($self,$class);
 
-	my(%defaults) = ( weekformat => "%V", togglhome => "$ENV{HOME}/.toggl" );
+	my(%defaults) = ( 
+		weekformat => "%V", 
+		yearformat => "%G", 
+		togglhome => "$ENV{HOME}/.toggl"
+	);
         my(%hash) = ( %defaults, @_) ;
         while ( my($key,$val) = each(%hash) ) {
                 $self->set($key,$val);
         }
 	$self->currweek($self->week());
+	$self->curryear($self->year());
 	if ( defined($ENV{TOGGLPROJ}) ) {
 		$self->togglproj($ENV{TOGGLPROJ});
 	}
@@ -76,6 +81,24 @@ sub new {
 		croak "togglhome is not defined\n";
 	}
 
+	my($togglhome) = $self->togglhome();
+	if ( ! -d $togglhome ) {
+		chdir($togglhome);
+		die "chdir($togglhome): $!\n";
+	}
+
+	my($curryeardir) = $self->togglhome() . "/" . $self->curryear();
+	$self->curryeardir($curryeardir);
+	if ( ! -d $curryeardir ) {
+		mkdir($curryeardir);
+		if ( ! -d $curryeardir ) {
+			die "mkdir($curryeardir): $!\n";
+		}
+	}
+	
+	my($currtimefile) = $self->togglhome() . "/" . $self->curryear() . "/" . $self->week . ".tf";
+	$self->currtimefile($currtimefile);
+	
 	unless ( $self->togglproj() ) {
 		$self->togglproj($self->togglhome());
 	}
@@ -110,8 +133,11 @@ sub _accessor {
 	
 
 sub currweek { return ( shift->_accessor("_currweek",shift) ); }
+sub curryear { return ( shift->_accessor("_curryear",shift) ); }
 sub togglhome { return ( shift->_accessor("togglhome",shift) ); }
 sub togglproj { return ( shift->_accessor("togglproj",shift) ); }
+sub curryeardir { return ( shift->_accessor("_curryeardir",shift) ); }
+sub currtimefile { return ( shift->_accessor("_currtimefile",shift) ); }
 
 sub week {
 	my($self) = shift;
@@ -119,6 +145,17 @@ sub week {
 	$sec = time unless ( defined $sec );
 	my($week) =  POSIX::strftime($self->get("weekformat"),localtime($sec));
 	return ( sprintf("%02.2d",$week) );
+}
+
+sub year {
+	my($self) = shift;
+	my($sec) = shift;
+	$sec = time unless ( defined $sec );
+	return ( POSIX::strftime($self->get("yearformat"),localtime($sec)) );
+}
+
+sub createcurrdir {
+	my($self) = shift;
 }
 
 sub readfile {
@@ -215,4 +252,30 @@ sub readprojfiles {
 	}
 	return(%proj);
 }
+
+sub readtimefile {
+	my($self) = shift;
+	my($file) = shift;
+	my(@content) = $self->readfile($file);
+	my(%allinfo) = ();
+	my($rec) = 0;
+	foreach ( @content ) {
+		my($str) = $self->trim($_);
+		my($key,$value) = split(/=/,$str);
+		next unless ( $key );
+		next unless ( $value );
+		if ( $key =~ /date/ ) {
+			$rec++;
+		}
+		next unless ( $rec );
+		$allinfo{$rec}{$key}=$value;
+	}
+	return(%allinfo);
+}
+		
+sub readcurrtimefile {
+	my($self) = shift;
+	return( $self->readtimefile($self->currtimefile()) );
+}
+	
 1;

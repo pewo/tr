@@ -47,3 +47,5 @@ print "week=$week\n";
 my(%proj) = $toggl->readprojfiles();
 print Dumper(\%proj);
 
+my(%time) = $toggl->readcurrtimefile();
+print Dumper(\%time);
