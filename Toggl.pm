@@ -127,6 +127,7 @@ sub readfile {
 	my(@content) = ();
 
 	if ( open(IN,"<$file") ) {
+		$self->debug(5,"Reading $file");
 		foreach ( <IN> ) {
 			chomp;
 			push(@content,$_);
@@ -136,11 +137,59 @@ sub readfile {
 	return(@content);
 }	
 
+sub trim {
+	my($self) = shift;
+	my($str) = shift;
+	return($str) unless ( defined($str) );
+	$str =~	s/#.*//;
+	$str =~	s/^\s*//;
+	$str =~	s/\s*$//;
+	return($str);
+}
+	
 sub readprojfile {
 	my($self) = shift;
 	my($file) = shift;
 	my(@content) = $self->readfile($file);
-	return(@content);
+
+	my(%proj);
+	my($id) = undef;
+	my($comment) = undef;
+	my($line) = 0;
+	my(%allproj);
+	foreach ( @content ) {
+		$line++;
+		$self->debug(5,"line $line in $file: $_");
+		my($str) = $self->trim($_);
+
+		my($key,$value) = split(/=/,$str);
+		next unless ( $key );
+		next unless ( $value );
+		$self->debug(9,"key=[$key], value=[$value]");
+		#
+		# id=100
+		# enable=yes
+		# comment=som text
+		#
+		if ( $key =~ /id/i ) {
+			$id=$value;
+		}
+		next unless ( $id );
+		$allproj{$id}{$key}=$value;
+	}
+	# Clear all project with enable=n
+	foreach $id ( sort keys %allproj ) {
+		my($enable) = $allproj{$id}{enable};
+		if ( $enable ) {
+			next if ( $enable =~ /^n/i );
+		}
+		my($comment) = $allproj{$id}{comment};
+		unless ( $comment ) {
+			$comment = "project id $id";
+		}
+		$proj{$id}=$comment;
+	}
+	return(%proj);
 }
 	
 
@@ -148,12 +197,22 @@ sub readprojfiles {
 	my($self) = shift;
 	my($projdir);
 	my($projects) = 0;
+	my(%proj);
 	foreach $projdir ( split(/:/,$self->togglproj() ) ) {
 		$self->debug(5,"projdir=$projdir");
 		my($projfile);
 		foreach $projfile ( <$projdir/*.proj> ) {
 			$self->debug(5,"projfile=$projfile");
+			my(%projfile) = $self->readprojfile($projfile);
+			foreach ( keys %projfile ) {
+				$proj{$_}=$projfile{$_};
+				$projects++;
+			}
 		}
 	}
+	unless ( $projects ) {
+		die "No projects, exiting...\n";
+	}
+	return(%proj);
 }
 1;

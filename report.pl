@@ -44,5 +44,6 @@ print Dumper(\$toggl);
 
 print "week=$week\n";
 
-$toggl->readprojfiles();
+my(%proj) = $toggl->readprojfiles();
+print Dumper(\%proj);
 
