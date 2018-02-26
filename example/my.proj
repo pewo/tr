@@ -1,0 +1,15 @@
+# 
+# put this file in ~/.toggl/my.proj
+#
+id=100
+comment=my first proj
+
+id=101
+comment=som other projetc
+enable=no
+
+id=102
+comment=som proj
+enable=yes
+
+
