@@ -277,5 +277,135 @@ sub readcurrtimefile {
 	my($self) = shift;
 	return( $self->readtimefile($self->currtimefile()) );
 }
+
+sub convtime2sec {
+	my($self) = shift;
+	my($time) = shift;
+	my($hour,$min) = split(/:/,$time);
+	my($sec) = $hour * 3600 + $min * 60;
+	$self->debug(9,"Converted $time to hour=$hour, min=$min to sec=$sec");
+	return($sec);
+}
+
+sub convtime2dursec {
+	my($self) = shift;
+	my($start) = shift;
+	my($end) = shift;
+
+	my($startsec) = $self->convtime2sec($start);
+	my($endsec) = $self->convtime2sec($end);
+
+	my($dursec) = $endsec - $startsec;
+	$self->debug(9,"Duration $dursec sec");
+	return($dursec);
+}
+
+sub startend2hour {
+	my($self) = shift;
+	my($start) = shift;
+	my($end) = shift;
+
+	my($dursec) = $self->convtime2dursec($start,$end);
+	my($durhour) = int($dursec / 3600);
+	my($durmin) = ($dursec - ( $durhour * 3600 )) / 60;
+	my($durhourpart) = int(100 * $durmin / 60) / 100;
+	my($res) = $durhour + $durhourpart;
+	#print "start=$start end=$end dursec=$dursec durhour=$durhour durmin=$durmin ($durhourpart) res=[$res]\n";
+	return($res);
+}
+
+sub convdursec2hour {
+	my($self) = shift;
+	my($dursec) = shift;
+
+	my($durhour) = int($dursec / 3600);
+	my($durmin) = ($dursec - ( $durhour * 3600 )) / 60;
+	my($durhourpart) = int(100 * $durmin / 60) / 100;
+	my($res) = $durhour + $durhourpart;
+	#print "dursec=$dursec durhour=$durhour durmin=$durmin ($durhourpart) res=[$res]\n";
+	return($res);
+}
+
+sub dates {
+	my($self) = shift;
+	my($hashp) = shift;
+	
+	my($first) = undef;
+	my($last) = undef;
+
+	my(%date);
+	foreach ( sort keys %$hashp ) {
+		my($date) = $hashp->{$_}{"date"};
+		$date{$date}++;
+	}
+	return(sort keys %date);
+}
+
+sub weekreport {
+	my($self) = shift;
+	my($hashp) = shift;
+	my(%times) = %$hashp;
+	
+	my(@dates) = $self->dates($hashp);
+	my(%projnames) = $self->readprojfiles();
+
+
+	my(%proj);
+	while ( my($key,$value) = each(%times) ) {
+		#print "Key=$key\n";
+		#print Dumper(\$value);
+		my($date) = $value->{"date"};
+		my($start) = $value->{"start"};
+		my($end) = $value->{"end"};
+		my($proj) = $value->{"proj"};
+		$self->debug(9,"proj=$proj, start=$start, end=$end");
+		
+		my($dursec) = $self->convtime2dursec($start,$end);
+		#print "proj=$proj, date=$date, start=$start, end=$end, dursec=$dursec\n";
+		$proj{$proj}{$date} += $dursec;
+	}
+	#print Dumper(\%proj);
+
+	my($proj);
+	my(%res);
+	my($header);
+	my($res);
+	my(%projsum);
+	my(%datesum);
+	my($allsum) = 0;
+	foreach $proj ( sort keys %proj ) {
+		$header = sprintf("%-30.30s", "Project/Date");
+		$res = sprintf("%-30.30s", $proj . " " . $projnames{$proj});
+
+		my($date);
+		foreach $date ( @dates ) {
+			$header .= sprintf("%10.10s", $date);
+			my($dursec) = $proj{$proj}{$date};
+			$dursec = 0 unless ( $dursec );
+			#next unless ( $dursec );
+			$allsum += $dursec;
+			$datesum{$date}+=$dursec;
+			$projsum{$proj}+=$dursec;
+			$dursec = 0 unless ( $dursec );
+			my($hour) = $self->convdursec2hour($dursec);
+			$res .= sprintf("%10.2f", $hour);
+		}
+		$header .= sprintf("%10.10s","Total");
+		$res .= sprintf("%10.2f",$self->convdursec2hour($projsum{$proj}));
+		$res{$proj} = $res;
+	}
+	my($tailer) = sprintf("%-30.30s","Totals");
+	foreach ( @dates ) {
+		$tailer .= sprintf("%10.2f",$self->convdursec2hour($datesum{$_}));
+	}
+	$tailer .= sprintf("%10.2f",$self->convdursec2hour($allsum));
+		
+
+	print $header . "\n";
+	foreach ( sort keys %res ) {
+		print $res{$_} . "\n";
+	}
+	print $tailer . "\n";
+}
 	
 1;

@@ -7,7 +7,7 @@ use Toggl;
 
 my($start);
 my($end);
-my($debug) = 9;
+my($debug) = 0;
 GetOptions (
 	"start=i" => \$start,
 	"end=i" => \$end,
@@ -18,6 +18,7 @@ print "Toggl Version: $Toggl::VERSION\n";
 
 my($toggl) = new Toggl( debug => $debug );
 my($week) = $toggl->week();
+my($year) = $toggl->year();
 
 # 
 # If start or end is negative, use it as relative to current week
@@ -40,12 +41,20 @@ if ( $start > $end ) {
 	die "Start($start) week has to be less then end($end)\n";
 }
 
-print Dumper(\$toggl);
+#print Dumper(\$toggl);
 
-print "week=$week\n";
+#print "week=$week\n";
+#print "year=$year\n";
 
-my(%proj) = $toggl->readprojfiles();
-print Dumper(\%proj);
+#my(%proj) = $toggl->readprojfiles();
+#print "Projetcs:\n";
+#print Dumper(\%proj);
 
 my(%time) = $toggl->readcurrtimefile();
-print Dumper(\%time);
+#print "Timefile:\n";
+#print Dumper(\%time);
+
+my(@report) = $toggl->weekreport(\%time);
+#print "Weekreport:\n";
+#print Dumper(\@report);
+
