@@ -367,6 +367,7 @@ sub weekreport {
 	#print Dumper(\%proj);
 
 	my($proj);
+	my($html);
 	my(%res);
 	my($header);
 	my($res);
@@ -401,11 +402,83 @@ sub weekreport {
 	$tailer .= sprintf("%10.2f",$self->convdursec2hour($allsum));
 		
 
-	print $header . "\n";
+	$res = $header . "\n";
 	foreach ( sort keys %res ) {
-		print $res{$_} . "\n";
+		$res .= $res{$_} . "\n";
 	}
-	print $tailer . "\n";
+	$res .= $tailer . "\n";
+
+	return($res);
 }
 	
+sub zerofilltime {
+	my($self) = shift;
+	my($time) = shift;
+	my($hour,$min) = split(/:/,$time);
+	return( sprintf("%02.2d.%02.2d",$hour,$min) );
+}
+
+sub menu {
+	my($self) = shift;
+	my($hashp) = shift;
+	my(%times) = %$hashp;
+	
+	my(@dates) = $self->dates($hashp);
+	my($latestday) = $dates[-1];
+	my(%projnames) = $self->readprojfiles();
+
+	my(%date);
+	while ( my($key,$value) = each(%times) ) {
+		my($date) = $value->{"date"};
+		my($start) = $self->zerofilltime($value->{"start"});
+		my($end) = $self->zerofilltime($value->{"end"});
+		my($proj) = $value->{"proj"};
+		my($comment) = $value->{"comment"};
+		$date{$date}{$start}{$end}{proj}=$proj;
+		$date{$date}{$start}{$end}{comment}=$comment;
+	}
+
+	my($date);
+	my($prevdate) = 0;
+	my(%continue);
+	my($continue) = 0;
+	foreach $date ( sort keys %date ) {
+		if ( $prevdate ne $date ) {
+			print "Date: $date\n";
+			$prevdate = $date;
+		}
+		my($startp) = $date{$date};
+		my($start);
+		foreach $start ( sort keys %$startp ) {
+			my($endp) = $startp->{$start};
+			my($end);
+			foreach $end ( sort keys %$endp ) {
+				my($hp) = $endp->{$end};
+				my($proj) = $hp->{"proj"};
+				my($comment) = $hp->{"comment"};
+				$continue++;
+				$continue{$continue}{proj}=$proj;
+				$continue{$continue}{comment}=$comment;
+				printf("%2d -> %s - %s %-40.40s %s\n",$continue, $start,$end, $proj . " " . $projnames{$proj},  $comment);
+			}
+		}	
+	}
+	print "c <rec> for continue, n for new rec, q for quit: ";
+	
+	my $answer = readline(STDIN);
+	chomp($answer);
+	if ( $answer =~ /^q/i ) {
+		print "Quit...\n";	
+		exit(0);
+	}
+	elsif ( $answer =~ /^c\s*(\d+)/ ) {
+		print "Continuing on $1\n";
+	}
+	elsif ( $answer =~ /^n/ ) {
+		print "Starting new...\n";
+	}
+	else {
+		print "answer=$answer\n";
+	}
+}
 1;

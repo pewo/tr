@@ -54,7 +54,6 @@ my(%time) = $toggl->readcurrtimefile();
 #print "Timefile:\n";
 #print Dumper(\%time);
 
-my(@report) = $toggl->weekreport(\%time);
-#print "Weekreport:\n";
-#print Dumper(\@report);
+my($res) = $toggl->weekreport(\%time);
+print $res;
 
