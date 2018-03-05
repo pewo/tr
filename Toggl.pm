@@ -96,6 +96,8 @@ use POSIX;
 
 $Toggl::VERSION = '0.01';
 @Toggl::ISA = qw(Object HotKey);
+use constant OFF => 0;
+use constant ON  => 1;
 
 sub new {
         my $proto = shift;
@@ -144,6 +146,12 @@ sub new {
 		$self->togglproj($self->togglhome());
 	}
 
+	#
+	# Module that parse the current timefile to see if we are
+	# running an active timer...
+	# Now we initiate it to 0
+	$self->currstatus(OFF);
+
         return($self);
 }
 
@@ -179,6 +187,7 @@ sub togglhome { return ( shift->_accessor("togglhome",shift) ); }
 sub togglproj { return ( shift->_accessor("togglproj",shift) ); }
 sub curryeardir { return ( shift->_accessor("_curryeardir",shift) ); }
 sub currtimefile { return ( shift->_accessor("_currtimefile",shift) ); }
+sub currstatus { return ( shift->_accessor("_currstatus",shift) ); }
 
 sub week {
 	my($self) = shift;
@@ -459,6 +468,75 @@ sub zerofilltime {
 	return( sprintf("%02.2d.%02.2d",$hour,$min) );
 }
 
+#
+# Print a list of projects and make the user select one
+#
+sub filterproj {
+	my($self) = shift;
+	
+	my(%projnames) = $self->readprojfiles();
+	my($projid) = undef;
+	my(@filter) = ();
+	my($filterstr) = "";
+	while( 1 ) {
+		my($found) = 0;
+		foreach ( sort keys %projnames ) {
+			my($include) = 0;
+			if ( length($filterstr) ) {
+				$include++ if ( $_ =~ /$filterstr/i );
+				$include++ if ( $projnames{$_} =~ /$filterstr/i );
+			}
+			else {
+				$include = 1;
+			}
+
+			next unless ( $include );
+			$found++;
+			$projid = $_;
+			print "$_ $projnames{$_}\n";
+		}
+		my($prompt) = "filter[$filterstr], ! for quit, backspace to clear";
+		if ( $found eq 1 ) {
+			$prompt .= ", enter to select proj $projid";
+		}
+
+		print "$prompt\n";	
+		my $answer = $self->readkey;
+
+		if ( $answer =~ /\n|\r/ ) {
+			if ( $found eq 1 ) {
+				print "Selected...[$projid]...yes\n";
+				return($projid);
+			}
+			next;
+		}
+
+		if ( $answer =~ /[[:alnum:]]/ ) {
+			push(@filter,$answer);
+		}
+		elsif ( $answer =~ /[[:cntrl:]]/ ) {
+			@filter = ();
+		}
+		elsif ( $answer eq "!" ) {
+			return(undef);
+		}
+		else {
+			print "answer=[$answer]\n";
+			print "filterstr=[$filterstr]\n";
+		}
+		$filterstr = join("",@filter);
+	}
+}
+
+sub prompt {
+	my($self) = shift;
+	my($prompt) = shift;
+	print "$prompt : ";
+	my $str = <STDIN>;
+	chomp($str);
+	return($str);
+}
+
 sub menu {
 	my($self) = shift;
 	my($hashp) = shift;
@@ -504,7 +582,8 @@ sub menu {
 			}
 		}	
 	}
-	print "c <rec> for continue, n for new rec, q for quit:\n";
+	print "Timer is " . $self->currstatus() . "\n";
+	print "c <rec> for continue, n for new rec, q for quit, s for stop:\n";
 	
 	my $answer = $self->readkey;
 	#my $answer = readline(STDIN);
@@ -513,11 +592,26 @@ sub menu {
 		print "Quit...\n";	
 		exit(0);
 	}
-	elsif ( $answer =~ /^c\s*(\d+)/ ) {
-		print "Continuing on $1\n";
+	elsif ( $answer =~ /^c/i ) {
+		my $row = $self->prompt("Continue on row: ");
+		
+		return unless ( defined($row) );
+		return unless ( defined($continue{$row}) );
+		my($projid) = $continue{$row}{"proj"};
+		my($comment) = $continue{$row}{"comment"};
+		print "Continue on row: $row (proj:$projid, comment:$comment)\n";
+		$self->currstatus(ON);
 	}
 	elsif ( $answer =~ /^n/ ) {
-		print "Starting new...\n";
+		my($projid) = $self->filterproj();
+		unless ( $projid ) {
+			return(undef);
+		}
+		print "Starting new using projid: $projid...\n";
+		$self->currstatus(ON);
+	}
+	elsif ( $answer =~ /^s/i ) {
+		$self->currstatus(OFF);
 	}
 	else {
 		print "answer=$answer\n";
