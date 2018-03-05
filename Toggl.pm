@@ -141,16 +141,18 @@ sub new {
 	
 	my($currtimefile) = $self->togglhome() . "/" . $self->curryear() . "/" . $self->week . ".tf";
 	$self->currtimefile($currtimefile);
-	
+	$self->currtimefiletmp($currtimefile . ".tmp");
+
 	unless ( $self->togglproj() ) {
 		$self->togglproj($self->togglhome());
 	}
 
+	my(%projects) = $self->readprojfiles();
+	$self->projects(\%projects);
 	#
 	# Module that parse the current timefile to see if we are
 	# running an active timer...
 	# Now we initiate it to 0
-	$self->currstatus(OFF);
 
         return($self);
 }
@@ -187,7 +189,15 @@ sub togglhome { return ( shift->_accessor("togglhome",shift) ); }
 sub togglproj { return ( shift->_accessor("togglproj",shift) ); }
 sub curryeardir { return ( shift->_accessor("_curryeardir",shift) ); }
 sub currtimefile { return ( shift->_accessor("_currtimefile",shift) ); }
-sub currstatus { return ( shift->_accessor("_currstatus",shift) ); }
+sub currtimefiletmp { return ( shift->_accessor("_currtimefiletmp",shift) ); }
+sub projects { return ( shift->_accessor("_projects",shift) ); }
+
+sub projid {
+	my($self) = shift;
+	my($projid) = shift;
+	my($projects) = $self->projects();
+	return($projects->{$projid});
+}
 
 sub week {
 	my($self) = shift;
@@ -203,6 +213,17 @@ sub year {
 	$sec = time unless ( defined $sec );
 	return ( POSIX::strftime($self->get("yearformat"),localtime($sec)) );
 }
+
+sub timestamp {
+	my($self) = shift;
+	my($secs) = shift;
+	$secs = time unless ( $secs );
+	my($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime($secs);
+	my($date) = sprintf("%04.4d%02.2d%02.2d",$year+1900,$mon+1,$mday);
+	my($time) = sprintf("%02.2d:%02.2d",$hour,$min);
+	return($date,$time);
+}
+
 
 sub createcurrdir {
 	my($self) = shift;
@@ -317,6 +338,9 @@ sub readtimefile {
 		if ( $key =~ /date/ ) {
 			$rec++;
 		}
+		elsif ( $key =~ /proj/ ) {
+			($value) = split(/\s+/,$value);
+		}
 		next unless ( $rec );
 		$allinfo{$rec}{$key}=$value;
 	}
@@ -419,7 +443,7 @@ sub weekreport {
 	my($proj);
 	my($html);
 	my(%res);
-	my($header);
+	my($header) = "";
 	my($res);
 	my(%projsum);
 	my(%datesum);
@@ -528,6 +552,65 @@ sub filterproj {
 	}
 }
 
+sub currstatus { 
+	my($self) = shift;
+	my($tftmp) = $self->currtimefiletmp();
+	if ( -r $tftmp ) {
+		return 1;
+	}
+	else {
+		return 0;
+	}
+}
+
+sub stoptimer {
+	my($self) = shift;
+
+	return unless ( $self->currstatus() );
+
+	my($date,$time) = $self->timestamp();
+	my($tf) = $self->currtimefile();
+	my($tftmp) = $self->currtimefiletmp();
+	my($res) = "end=$time\n";
+	if ( -r $tftmp ) {
+		if ( open(TF,">> $tftmp") ) {
+			print TF $res;
+			close(TF);
+		}	
+		if ( open(TF,"<$tftmp") ) {
+			my(@res) = <TF>;
+			close(TF);
+			if ( open(TF,">>$tf") ) {
+				foreach ( @res ) {
+					print TF $_;
+				}
+				close(TF);
+			}
+		}
+		unlink($tftmp);
+	}
+	
+}
+sub starttimer {
+	my($self) = shift;
+	my($projid) = shift;
+	my($comment) = shift;
+
+	my($text) = $self->projid($projid);
+	my($date,$time) = $self->timestamp();
+	my($tftmp) = $self->currtimefiletmp();
+	my($res) = "";
+	$res .= "date=$date\n";
+	$res .= "start=$time\n";
+	$res .= "proj=$projid ($text)\n";
+	$res .= "comment=$comment\n";
+	
+	if ( open(TF,">> $tftmp") ) {
+		print TF $res;
+		close(TF);
+	}	
+}
+
 sub prompt {
 	my($self) = shift;
 	my($prompt) = shift;
@@ -539,10 +622,12 @@ sub prompt {
 
 sub menu {
 	my($self) = shift;
-	my($hashp) = shift;
-	my(%times) = %$hashp;
+	#my($hashp) = shift;
+	#my(%times) = %$hashp;
+	my(%times) = $self->readcurrtimefile();
 	
-	my(@dates) = $self->dates($hashp);
+	#my(@dates) = $self->dates($hashp);
+	my(@dates) = $self->dates(\%times);
 	my($latestday) = $dates[-1];
 	my(%projnames) = $self->readprojfiles();
 
@@ -590,6 +675,9 @@ sub menu {
 	chomp($answer);
 	if ( $answer =~ /^q/i ) {
 		print "Quit...\n";	
+		if ( $self->currstatus() ) {
+			print "Warning you have an active timer running...\n";
+		}
 		exit(0);
 	}
 	elsif ( $answer =~ /^c/i ) {
@@ -600,7 +688,7 @@ sub menu {
 		my($projid) = $continue{$row}{"proj"};
 		my($comment) = $continue{$row}{"comment"};
 		print "Continue on row: $row (proj:$projid, comment:$comment)\n";
-		$self->currstatus(ON);
+		$self->starttimer($projid,$comment);
 	}
 	elsif ( $answer =~ /^n/ ) {
 		my($projid) = $self->filterproj();
@@ -608,10 +696,11 @@ sub menu {
 			return(undef);
 		}
 		print "Starting new using projid: $projid...\n";
-		$self->currstatus(ON);
+		my($comment) = prompt("Comment: ");
+		$self->starttimer($projid,$comment);
 	}
 	elsif ( $answer =~ /^s/i ) {
-		$self->currstatus(OFF);
+		$self->stoptimer();
 	}
 	else {
 		print "answer=$answer\n";

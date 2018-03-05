@@ -15,10 +15,11 @@ print "Toggl Version: $Toggl::VERSION\n";
 my($toggl) = new Toggl( debug => $debug );
 
 while(1) {
-	my(%time) = $toggl->readcurrtimefile();
+	#my(%time) = $toggl->readcurrtimefile();
 
-	my($res) = $toggl->weekreport(\%time);
-	print $res;
+	#my($res) = $toggl->weekreport(\%time);
+	#print $res;
 
-	$toggl->menu(\%time);
+	#$toggl->menu(\%time);
+	$toggl->menu();
 }
