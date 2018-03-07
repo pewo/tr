@@ -12,7 +12,7 @@ GetOptions (
 
 print "Toggl Version: $Toggl::VERSION\n";
 
-my($toggl) = new Toggl( debug => $debug );
+my($toggl) = new Toggl( debug => $debug, testmode => 0 );
 
 while(1) {
 	#my(%time) = $toggl->readcurrtimefile();

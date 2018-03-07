@@ -98,7 +98,7 @@ use open ':encoding(utf8)';
 binmode(STDOUT, ":utf8");
 
 
-$Toggl::VERSION = 'v0.1.0';
+$Toggl::VERSION = 'v0.1.1';
 @Toggl::ISA = qw(Object HotKey);
 use constant OFF => 0;
 use constant ON  => 1;
@@ -125,11 +125,18 @@ sub new {
 		$self->togglproj($ENV{TOGGLPROJ});
 	}
 
-	unless ( $self->togglhome() ) {
+	my($togglhome) = $self->togglhome();
+	unless ( $togglhome ) {
 		croak "togglhome is not defined\n";
 	}
 
-	my($togglhome) = $self->togglhome();
+	my($testmode) = $self->testmode();
+	if ( $testmode ) {
+		$testmode =~ s/\W/_/g;
+		$togglhome .= "_test_" . $testmode;
+		$self->togglhome($togglhome);
+	}
+
 	if ( ! -d $togglhome ) {
 		chdir($togglhome);
 		die "chdir($togglhome): $!\n";
@@ -167,8 +174,10 @@ sub debug {
 	my($str) = shift;
 	
 	my($debug) = $self->get("debug");
-	return  unless ( $debug );
-	return  unless ( $debug >= $level );
+	if ( $level > 0 ) {
+		return  unless ( $debug );
+		return  unless ( $debug >= $level );
+	}
 	chomp($str);
 	print "DEBUG($level): " . localtime(time) . " $str ***\n";
 }
@@ -187,6 +196,7 @@ sub _accessor {
 }
 	
 
+sub testmode { return ( shift->_accessor("testmode",shift) ); }
 sub currweek { return ( shift->_accessor("_currweek",shift) ); }
 sub curryear { return ( shift->_accessor("_curryear",shift) ); }
 sub togglhome { return ( shift->_accessor("togglhome",shift) ); }
@@ -310,23 +320,47 @@ sub readprojfile {
 }
 	
 
-sub readprojfiles {
+sub projfiles {
 	my($self) = shift;
+	my(@projfiles);
 	my($projdir);
-	my($projects) = 0;
-	my(%proj);
 	foreach $projdir ( split(/:/,$self->togglproj() ) ) {
 		$self->debug(5,"projdir=$projdir");
 		my($projfile);
 		foreach $projfile ( <$projdir/*.proj> ) {
 			$self->debug(5,"projfile=$projfile");
-			my(%projfile) = $self->readprojfile($projfile);
-			foreach ( keys %projfile ) {
-				$proj{$_}=$projfile{$_};
-				$projects++;
-			}
+			push(@projfiles,$projfile);
 		}
 	}
+	return(@projfiles);
+}
+
+sub editprojfiles() {
+	my($self) = shift;
+	foreach ( $self->projfiles() ) {
+		$self->edit($_);
+	}
+}
+
+sub readprojfiles {
+	my($self) = shift;
+	my($projdir);
+	my($projects) = 0;
+	my(%proj);
+	my(@projfiles) = $self->projfiles();
+	#foreach $projdir ( split(/:/,$self->togglproj() ) ) {
+		#$self->debug(5,"projdir=$projdir");
+	my($projfile);
+		#foreach $projfile ( <$projdir/*.proj> ) {
+	foreach $projfile ( $self->projfiles() ) {
+		$self->debug(5,"projfile=$projfile");
+		my(%projfile) = $self->readprojfile($projfile);
+		foreach ( keys %projfile ) {
+			$proj{$_}=$projfile{$_};
+			$projects++;
+		}
+	}
+	#}
 	unless ( $projects ) {
 		die "No projects, exiting...\n";
 	}
@@ -383,6 +417,7 @@ sub convtime2dursec {
 	return($dursec);
 }
 
+	
 sub startend2hour {
 	my($self) = shift;
 	my($start) = shift;
@@ -640,38 +675,48 @@ sub edit() {
 	my($file) = shift;
 
 	return undef unless ( defined($file) );
-	return undef unless ( -w $file );
+	
+	unless ( -w $file ) {
+		print "No existing file: $file\n";
+		return undef;
+	}
 
 	my($editor) = $ENV{EDITOR};
 	unless ( $editor ) {
 		if ( -x "/bin/vim" ) {
 			$editor = "/bin/vim";
 		}
+		elsif ( -x "/usr/bin/vim" ) {
+			$editor = "/usr/bin/vim";
+		}
 		elsif ( -x "/bin/vi" ) {
 			$editor = "/bin/vi";
+		}
+		elsif ( -x "/usr/bin/vi" ) {
+			$editor = "/usr/bin/vi";
 		}
 	}
 
 	if ( $editor ) {
+		$self->debug(5,"$editor $file");
 		return system("$editor " . $file);
+	}
+	else {
+		print "No editor found, please set \$EDITOR env variable\n";
 	}
 	return(undef);
 }
 
 sub menu {
 	my($self) = shift;
-	#my($hashp) = shift;
-	#my(%times) = %$hashp;
 	my(%times) = $self->readcurrtimefile();
 	
-	#my(@dates) = $self->dates($hashp);
 	my(@dates) = $self->dates(\%times);
 	my($latestday) = $dates[-1];
 
 	print "\n" . $line . "\n";
 	print $self->weekreport(\%times);
 
-	#print $line . "\n\n";
 	print "\n" . $line . "\n";
 	my(%date);
 	while ( my($key,$value) = each(%times) ) {
@@ -706,7 +751,7 @@ sub menu {
 				$continue{$continue}{proj}=$proj;
 				$continue{$continue}{comment}=$comment;
 				my($projname) = $self->projid($proj);
-				printf("%2d -> %s - %s %-40.40s %s\n",$continue, $start,$end, $proj . " " . $projname,  $comment);
+				printf("%2d: %s - %s %-40.40s %s\n",$continue, $start,$end, $proj . " " . $projname,  $comment);
 			}
 		}	
 	}
@@ -715,18 +760,28 @@ sub menu {
 	#
 	my(%running) = $self->readtimefile($self->currtimefiletmp());
 	my($runningdate) = $running{1}{date};
+	my($year,$now) = $self->timestamp();
+	my($prompt) = "\n$now ";
+
+
+	if ( $continue > 0 ) {
+		$prompt .= "(c)ontinue ";
+	}
+	$prompt .= "(e)dit (n)ew (p)rojects (q)uit";
 	if ( $runningdate ) {
 		my($projid) = $running{1}{proj};
 		my($project) = $self->projid($projid);
 		my($comment) = $running{1}{comment} || "";
 		my($start) = $running{1}{start};
+		my($secs) = $self->convtime2dursec($start,$now);
+		my($min) = int($secs / 60);
 		print "\n" . $line . "\n";
-		print "Timer is running since $start for project $projid\n";
+		print "Timer is running since $start($min min) for projid $projid\n";
 		print "Doing \"$comment\" in \"$project\"\n";
+		$prompt .= " (s)top (t)empfile:";
 	}
-	print "\n";
-	print "(c)ontinue, e(edit) (n)ew, (q)uit, (s)top (t)empfile:\n";
 	
+	print $prompt . "\n";
 	my $answer = $self->readkey;
 	#my $answer = readline(STDIN);
 	chomp($answer);
@@ -766,6 +821,11 @@ sub menu {
 	}
 	elsif ( $answer =~ /^e/ ) {
 		$self->edit($self->currtimefile());
+	}
+	elsif ( $answer =~ /^p/i ) {
+		$self->editprojfiles();
+		my(%projects) = $self->readprojfiles();
+		$self->projects(\%projects);
 	}
 	elsif ( $answer =~ /^s/i ) {
 		$self->stoptimer();
