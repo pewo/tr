@@ -98,7 +98,7 @@ use open ':encoding(utf8)';
 binmode(STDOUT, ":utf8");
 
 
-$Toggl::VERSION = '0.01';
+$Toggl::VERSION = 'v0.1.0';
 @Toggl::ISA = qw(Object HotKey);
 use constant OFF => 0;
 use constant ON  => 1;
