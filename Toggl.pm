@@ -631,6 +631,29 @@ sub prompt() {
 	return($str);
 }
 
+sub edit() {
+	my($self) = shift;
+	my($file) = shift;
+
+	return undef unless ( defined($file) );
+	return undef unless ( -w $file );
+
+	my($editor) = $ENV{EDITOR};
+	unless ( $editor ) {
+		if ( -x "/bin/vim" ) {
+			$editor = "/bin/vim";
+		}
+		elsif ( -x "/bin/vi" ) {
+			$editor = "/bin/vi";
+		}
+	}
+
+	if ( $editor ) {
+		return system("$editor " . $file);
+	}
+	return(undef);
+}
+
 sub menu {
 	my($self) = shift;
 	#my($hashp) = shift;
@@ -698,7 +721,7 @@ sub menu {
 		print "Doing \"$comment\" in \"$project\"\n";
 	}
 	print "\n";
-	print "(c)ontinue, (n)ew, (q)uit, (s)top:\n";
+	print "(c)ontinue, e(edit) (n)ew, (q)uit, (s)top (t)empfile:\n";
 	
 	my $answer = $self->readkey;
 	#my $answer = readline(STDIN);
@@ -717,6 +740,12 @@ sub menu {
 		return unless ( defined($continue{$row}) );
 		my($projid) = $continue{$row}{"proj"};
 		my($comment) = $continue{$row}{"comment"};
+		my($newcomment) = $self->prompt("Comment ($comment): ");
+		if ( defined($newcomment) ) {
+			if ( length($newcomment) ) {
+				$comment=$newcomment;
+			}
+		}
 		print "Continuing on $row (proj:$projid, comment:$comment)\n";
 		$self->starttimer($projid,$comment);
 	}
@@ -727,6 +756,12 @@ sub menu {
 		}
 		my($comment) = $self->prompt("Comment: ");
 		$self->starttimer($projid,$comment);
+	}
+	elsif ( $answer =~ /^t/ ) {
+		$self->edit($self->currtimefiletmp());
+	}
+	elsif ( $answer =~ /^e/ ) {
+		$self->edit($self->currtimefile());
 	}
 	elsif ( $answer =~ /^s/i ) {
 		$self->stoptimer();
