@@ -592,6 +592,7 @@ sub stoptimer {
 			my(@res) = <TF>;
 			close(TF);
 			if ( open(TF,">>$tf") ) {
+				print TF "\n--- " . localtime(time) . " ---\n";
 				foreach ( @res ) {
 					print TF $_;
 				}
