@@ -93,6 +93,10 @@ use Carp;
 use Data::Dumper;
 use Storable qw(lock_store lock_retrieve);
 use POSIX;
+use utf8;
+use open ':encoding(utf8)';
+binmode(STDOUT, ":utf8");
+
 
 $Toggl::VERSION = '0.01';
 @Toggl::ISA = qw(Object HotKey);
@@ -154,7 +158,6 @@ sub new {
 	# Module that parse the current timefile to see if we are
 	# running an active timer...
 	# Now we initiate it to 0
-
         return($self);
 }
 
