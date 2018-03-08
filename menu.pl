@@ -12,7 +12,11 @@ GetOptions (
 
 print "Toggl Version: $Toggl::VERSION\n";
 
-my($toggl) = new Toggl( debug => $debug, testmode => 0 );
+my($toggl) = new Toggl( debug => $debug, testmode => 1 );
+
+$toggl->setcolor("red");
+print "Hello red world\n";
+$toggl->setcolor();
 
 while(1) {
 	#my(%time) = $toggl->readcurrtimefile();

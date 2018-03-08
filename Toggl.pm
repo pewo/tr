@@ -45,6 +45,69 @@ sub new {
         return($self);
 }
 
+
+package Color;
+
+use strict;
+our @ISA = qw(Object);
+our @EXPORT = qw(setcolor);
+
+sub colorcode() {
+	my($self) = shift;
+	my($color) = shift;
+
+	our(%color) = (
+		black       => "0;30",
+		darkgray    => "1;30",
+		red         => "0;31",
+		lightred    => "1;31",
+		green       => "0;32",
+		lightgreen  => "1;32",
+		brown       => "0;33",
+		orange      => "0;33",
+		yellow      => "1;33",
+		blue        => "0;34",
+		lightblue   => "1;34",
+		purple      => "0;35",
+		lightpurple => "1;35",
+		cyan        => "0;36",
+		lightcyan   => "1;36",
+		lightgray   => "0;37",
+		white       => "1;37",
+		nocolor     => "0",
+	);
+	if ( $color ) {
+		if ( defined($color{$color}) ) {
+			return($color{$color});
+		}
+	}
+	else {
+		return($color{"nocolor"});
+	}	
+	return(undef);
+}
+
+sub getcolor() {
+	my($self) = shift;
+	my($color) = shift;
+	my($code) = $self->colorcode($color);
+	$self->debug(5,"Color code is $code");
+	my($str) =  "\033[" . $code . "m";
+	return($str);
+}
+
+sub setcolor() {
+	my($self) = shift;
+	my($color) = shift;
+	if ( $color ) {
+		$self->debug(5,"Setting color to $color");
+	}
+	else {
+		$self->debug(5,"Resetting color");
+	}
+	print $self->getcolor($color);
+}
+
 package HotKey;
 
 #https://docstore.mik.ua/orelly/perl4/cook/ch15_09.htm
@@ -99,7 +162,7 @@ binmode(STDOUT, ":utf8");
 
 
 $Toggl::VERSION = 'v0.1.1';
-@Toggl::ISA = qw(Object HotKey);
+@Toggl::ISA = qw(Object HotKey Color);
 use constant OFF => 0;
 use constant ON  => 1;
 our $line = "================================================================";
@@ -714,8 +777,11 @@ sub menu {
 	my(@dates) = $self->dates(\%times);
 	my($latestday) = $dates[-1];
 
+	$self->setcolor("red");
 	print "\n" . $line . "\n";
+	$self->setcolor("blue");
 	print $self->weekreport(\%times);
+	$self->setcolor();
 
 	print "\n" . $line . "\n";
 	my(%date);
