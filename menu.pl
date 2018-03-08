@@ -6,24 +6,15 @@ use Getopt::Long;
 use Toggl;
 
 my($debug) = 0;
+my($home) = $ENV{HOME};
+$ENV{TOGGLPROJ} = "/proj/sysadm/toggl:$home/.toggl";
+
 GetOptions (
 	"debug=i"  => \$debug
 ) or die("Error in command line arguments\n");
 
 print "Toggl Version: $Toggl::VERSION\n";
 
-my($toggl) = new Toggl( debug => $debug, testmode => 1 );
+my($toggl) = new Toggl( debug => $debug, testmode => 0, color => 1 );
 
-$toggl->setcolor("red");
-print "Hello red world\n";
-$toggl->setcolor();
-
-while(1) {
-	#my(%time) = $toggl->readcurrtimefile();
-
-	#my($res) = $toggl->weekreport(\%time);
-	#print $res;
-
-	#$toggl->menu(\%time);
-	$toggl->menu();
-}
+while(1) { $toggl->menu(); }

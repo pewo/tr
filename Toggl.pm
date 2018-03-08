@@ -105,7 +105,9 @@ sub setcolor() {
 	else {
 		$self->debug(5,"Resetting color");
 	}
-	print $self->getcolor($color);
+	if ( $self->color() ) {
+		print $self->getcolor($color);
+	}
 }
 
 package HotKey;
@@ -163,9 +165,12 @@ binmode(STDOUT, ":utf8");
 
 $Toggl::VERSION = 'v0.1.1';
 @Toggl::ISA = qw(Object HotKey Color);
-use constant OFF => 0;
-use constant ON  => 1;
-our $line = "================================================================";
+use constant RED => "red";
+use constant BLUE  => "blue";
+use constant GREEN => "green";
+use constant LIGHTGREEN => "lightgreen";
+
+our $line = "===============================================================================";
 
 sub new {
         my $proto = shift;
@@ -260,6 +265,7 @@ sub _accessor {
 	
 
 sub testmode { return ( shift->_accessor("testmode",shift) ); }
+sub color { return ( shift->_accessor("color",shift) ); }
 sub currweek { return ( shift->_accessor("_currweek",shift) ); }
 sub curryear { return ( shift->_accessor("_curryear",shift) ); }
 sub togglhome { return ( shift->_accessor("togglhome",shift) ); }
@@ -777,13 +783,16 @@ sub menu {
 	my(@dates) = $self->dates(\%times);
 	my($latestday) = $dates[-1];
 
-	$self->setcolor("red");
+	print "\n\n";
+	$self->setcolor(BLUE);
 	print "\n" . $line . "\n";
-	$self->setcolor("blue");
+	$self->setcolor(RED);
 	print $self->weekreport(\%times);
 	$self->setcolor();
 
-	print "\n" . $line . "\n";
+	$self->setcolor(BLUE);
+	print $line . "\n";
+	$self->setcolor();
 	my(%date);
 	while ( my($key,$value) = each(%times) ) {
 		my($date) = $value->{"date"};
@@ -799,10 +808,20 @@ sub menu {
 	my($prevdate) = 0;
 	my(%continue);
 	my($continue) = 0;
+	my($colorshift) = 0;
+	$self->setcolor(GREEN);
 	foreach $date ( sort keys %date ) {
 		if ( $prevdate ne $date ) {
-			print "Date: $date\n";
+			$colorshift++;
+			$colorshift = 0 if ( $colorshift > 1 );
 			$prevdate = $date;
+			if ( $colorshift ) {
+				$self->setcolor(LIGHTGREEN);
+			}
+			else {
+				$self->setcolor(GREEN);
+			}
+			print "Date: $date\n";
 		}
 		my($startp) = $date{$date};
 		my($start);
@@ -821,13 +840,17 @@ sub menu {
 			}
 		}	
 	}
+	$self->setcolor();
 	#
 	# Imort tmp file i.e the running timer
 	#
 	my(%running) = $self->readtimefile($self->currtimefiletmp());
 	my($runningdate) = $running{1}{date};
 	my($year,$now) = $self->timestamp();
-	my($prompt) = "\n$now ";
+	#$self->setcolor(RED);
+	#print $line . "\n";
+	$self->setcolor(RED);
+	my($prompt) = "$now ";
 
 
 	if ( $continue > 0 ) {
@@ -841,12 +864,17 @@ sub menu {
 		my($start) = $running{1}{start};
 		my($secs) = $self->convtime2dursec($start,$now);
 		my($min) = int($secs / 60);
-		print "\n" . $line . "\n";
+		$self->setcolor(BLUE);
+		print $line . "\n";
+		$self->setcolor(RED);
 		print "Timer is running since $start($min min) for projid $projid\n";
 		print "Doing \"$comment\" in \"$project\"\n";
 		$prompt .= " (s)top (t)empfile:";
 	}
 	
+	$self->setcolor(BLUE);
+	print $line . "\n";
+	$self->setcolor();
 	print $prompt . "\n";
 	my $answer = $self->readkey;
 	#my $answer = readline(STDIN);
