@@ -902,7 +902,7 @@ sub menu {
 		print "Continuing on $row (proj:$projid, comment:$comment)\n";
 		$self->starttimer($projid,$comment);
 	}
-	elsif ( $answer =~ /^n/ ) {
+	elsif ( $answer =~ /^n/i ) {
 		my($projid) = $self->filterproj();
 		unless ( $projid ) {
 			return(undef);
@@ -910,10 +910,10 @@ sub menu {
 		my($comment) = $self->prompt("Comment: ");
 		$self->starttimer($projid,$comment);
 	}
-	elsif ( $answer =~ /^t/ ) {
+	elsif ( $answer =~ /^t/i ) {
 		$self->edit($self->currtimefiletmp());
 	}
-	elsif ( $answer =~ /^e/ ) {
+	elsif ( $answer =~ /^e/i ) {
 		$self->edit($self->currtimefile());
 	}
 	elsif ( $answer =~ /^p/i ) {
