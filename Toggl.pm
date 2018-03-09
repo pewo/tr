@@ -567,7 +567,7 @@ sub weekreport {
 
 		my($date);
 		foreach $date ( @dates ) {
-			$header .= sprintf("%10.10s", $date);
+			$header .= sprintf("%9.9s", $date);
 			my($dursec) = $proj{$proj}{$date};
 			$dursec = 0 unless ( $dursec );
 			#next unless ( $dursec );
@@ -576,17 +576,17 @@ sub weekreport {
 			$projsum{$proj}+=$dursec;
 			$dursec = 0 unless ( $dursec );
 			my($hour) = $self->convdursec2hour($dursec);
-			$res .= sprintf("%10.2f", $hour);
+			$res .= sprintf("%9.2f", $hour);
 		}
-		$header .= sprintf("%10.10s","Total");
-		$res .= sprintf("%10.2f",$self->convdursec2hour($projsum{$proj}));
+		$header .= sprintf("%9.9s","Total");
+		$res .= sprintf("%9.2f",$self->convdursec2hour($projsum{$proj}));
 		$res{$proj} = $res;
 	}
 	my($tailer) = sprintf("%-30.30s","Totals");
 	foreach ( @dates ) {
-		$tailer .= sprintf("%10.2f",$self->convdursec2hour($datesum{$_}));
+		$tailer .= sprintf("%9.2f",$self->convdursec2hour($datesum{$_}));
 	}
-	$tailer .= sprintf("%10.2f",$self->convdursec2hour($allsum));
+	$tailer .= sprintf("%9.2f",$self->convdursec2hour($allsum));
 		
 
 	$res = $header . "\n";
@@ -784,11 +784,6 @@ sub menu {
 	my($latestday) = $dates[-1];
 
 	print "\n\n";
-	$self->setcolor(BLUE);
-	print "\n" . $line . "\n";
-	$self->setcolor(RED);
-	print $self->weekreport(\%times);
-	$self->setcolor();
 
 	$self->setcolor(BLUE);
 	print $line . "\n";
@@ -840,6 +835,11 @@ sub menu {
 			}
 		}	
 	}
+	$self->setcolor();
+	$self->setcolor(BLUE);
+	print $line . "\n";
+	$self->setcolor(RED);
+	print $self->weekreport(\%times);
 	$self->setcolor();
 	#
 	# Imort tmp file i.e the running timer
