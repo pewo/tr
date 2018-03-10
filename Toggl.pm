@@ -193,6 +193,10 @@ sub new {
 		$self->togglproj($ENV{TOGGLPROJ});
 	}
 
+	if ( defined($ENV{TOGGLHOME}) ) {
+		$self->togglhome($ENV{TOGGLHOME});
+	}
+
 	my($togglhome) = $self->togglhome();
 	unless ( $togglhome ) {
 		croak "togglhome is not defined\n";
