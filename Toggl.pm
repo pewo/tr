@@ -163,8 +163,8 @@ use open ':encoding(utf8)';
 binmode(STDOUT, ":utf8");
 
 
-$Toggl::VERSION = 'v0.1.1';
-@Toggl::ISA = qw(Object HotKey Color);
+our $VERSION = 'v0.1.1';
+our @ISA = qw(Object HotKey Color);
 use constant RED => "red";
 use constant BLUE  => "blue";
 use constant GREEN => "green";
@@ -219,7 +219,8 @@ sub new {
 		}
 	}
 	
-	my($currtimefile) = $self->togglhome() . "/" . $self->curryear() . "/" . $self->week . ".tf";
+	#my($currtimefile) = $self->togglhome() . "/" . $self->curryear() . "/" . $self->week . ".tf";
+	my($currtimefile) = $self->setcurrtimefile();
 	$self->currtimefile($currtimefile);
 	$self->currtimefiletmp($currtimefile . ".tmp");
 
@@ -229,11 +230,29 @@ sub new {
 
 	my(%projects) = $self->readprojfiles();
 	$self->projects(\%projects);
-	#
-	# Module that parse the current timefile to see if we are
-	# running an active timer...
-	# Now we initiate it to 0
+
+	#die Dumper(\$self);
         return($self);
+}
+
+sub setcurrtimefile() {
+	my($self) = shift;
+	my($secs) = shift;
+	$secs = time unless ( defined($secs) );
+	my($year) = $self->year($secs);
+	my($week) = $self->week($secs);
+	my($currtimefile) = $self->togglhome() . "/" . $year . "/" . $week . ".tf";
+	$self->currtimefile($currtimefile);
+	return($currtimefile);
+}
+
+sub changecurrtimefile() {
+	my($self) = shift;
+	my($secs) = shift;
+	$secs = 0 unless ( defined($secs) );
+
+	my($newtime) = time + $secs;
+	$self->setcurrtimefile($newtime);
 }
 
 sub debug {
@@ -528,7 +547,79 @@ sub dates {
 	return(sort keys %date);
 }
 
-sub weekreport {
+sub rawtimereport {
+	my($self) = shift;
+	my($hashp) = shift;
+	my(%times) = %$hashp;
+	
+	#
+	# Return 3 arrays
+	# 1: @header
+	# 2: @body
+	# 3: @tailer
+	#
+
+	my(@dates) = $self->dates($hashp);
+
+	#print $self->timereport(\%times);
+
+	my(%proj);
+	while ( my($key,$value) = each(%times) ) {
+		my($date) = $value->{"date"};
+		my($start) = $value->{"start"};
+		my($end) = $value->{"end"};
+		my($proj) = $value->{"proj"};
+		$self->debug(9,"proj=$proj, start=$start, end=$end");
+		
+		my($dursec) = $self->convtime2dursec($start,$end);
+		$proj{$proj}{$date} += $dursec;
+	}
+
+	my($proj);
+	my($html);
+	my(%res);
+	my($header) = "";
+	my(@header) = ();
+	my(@tailer) = ();
+	my(@body);
+	my(%projsum);
+	my(%datesum);
+	my($allsum) = 0;
+	push(@header,"Project/Date");
+	my($date);
+	foreach $date ( @dates ) {
+		push(@header,$date);
+	}
+	foreach $proj ( sort keys %proj ) {
+		my($projname) = $self->projid($proj);
+		my(@line) = ();
+		push(@line,$proj . " " . $projname);
+
+		my($date);
+		foreach $date ( @dates ) {
+			my($dursec) = $proj{$proj}{$date};
+			$dursec = 0 unless ( $dursec );
+			$allsum += $dursec;
+			$datesum{$date}+=$dursec;
+			$projsum{$proj}+=$dursec;
+			$dursec = 0 unless ( $dursec );
+			my($hour) = $self->convdursec2hour($dursec);
+			push(@line,$hour);
+		}
+		push(@line,$self->convdursec2hour($projsum{$proj}));
+		push(@body,\@line);
+	}
+	push(@header,"Total");
+	push(@tailer,"Totals");
+	foreach ( @dates ) {
+		push(@tailer,$self->convdursec2hour($datesum{$_}));
+	}
+	push(@tailer,$self->convdursec2hour($allsum));
+		
+	return(\@header,\@body,\@tailer);
+}
+
+sub timereport {
 	my($self) = shift;
 	my($hashp) = shift;
 	my(%times) = %$hashp;
@@ -839,7 +930,7 @@ sub menu {
 	$self->setcolor(BLUE);
 	print $line . "\n";
 	$self->setcolor(RED);
-	print $self->weekreport(\%times);
+	print $self->timereport(\%times);
 	$self->setcolor();
 	#
 	# Imort tmp file i.e the running timer
@@ -923,6 +1014,190 @@ sub menu {
 	}
 	elsif ( $answer =~ /^s/i ) {
 		$self->stoptimer();
+	}
+}
+
+sub currweekreport() {
+	my($self) = shift;
+
+	my(%times) = $self->readcurrtimefile();
+	return($self->rawtimereport(\%times));
+}
+
+sub formatoneline_text() {
+	# format one line as standard text output
+	# input is an array
+	my($self) = shift;
+	my($ap) = shift;
+	my($delimiter) = shift;
+	
+	# first field is formated as %-30.30s all other 
+	# fields ar formated as %9.9s
+
+	my($res) = undef;
+	foreach ( @$ap ) {
+		my($indent) = 9;
+		$indent = -30 unless ( $res );
+		if ( defined($delimiter) ) {
+			$res .= $_ . $delimiter;
+		}
+		else {
+			$res .= sprintf("%*.*s",$indent,abs($indent),$_);
+		}
+	}
+	return($res);
+}
+
+sub formatcurrweekreport_text() {
+	my($self) = shift;
+	my($header) = shift;
+	my($body) = shift;
+	my($tailer) = shift;
+	my($delimiter) = shift;
+
+	my($res) = $self->formatoneline_text($header,$delimiter) . "\n";
+	foreach ( @$body ) {
+		$res .= $self->formatoneline_text($_,$delimiter) . "\n";
+	}
+	$res .= $self->formatoneline_text($tailer,$delimiter) . "\n";
+	return($res);
+}
+
+sub formatoneline_htmltablerow() {
+	# format one line as standard html row output
+	# input is an array
+	my($self) = shift;
+	my($ap) = shift;
+	my($delimiter) = shift;
+	$delimiter = "td" unless ( $delimiter );
+	
+	# first field is formated as left justifief all other 
+	# fields ar right justifeid
+
+	my($res) = undef;
+	foreach ( @$ap ) {
+		my($align) = "left";
+		$align = "right" if ( $res );
+		
+		$res .= "<$delimiter align=\"$align\"> $_ </$delimiter>\n";
+	}
+	$res = "<tr>" . $res . "</tr>\n";
+	return($res);
+}
+
+sub formatcurrweekreport_html() {
+	my($self) = shift;
+	my($header) = shift;
+	my($body) = shift;
+	my($tailer) = shift;
+
+	my($tmp) = "";
+	my($html) = "";
+	$html .= "<!DOCTYPE html>\n";
+	$html .= "<html>\n";
+	$html .= "<body>\n";
+
+
+	$html .= "<table border=\"1\" cellpadding=\"10px\">\n";
+	$html .= "<caption>" . $VERSION . "</caption>\n";
+	
+	$tmp = $self->formatoneline_htmltablerow($header,"th");
+	$html .= "<thead> $tmp </thead>\n";
+	$html .= "<tbody>\n";
+	foreach ( @$body ) {
+		$html .= $self->formatoneline_htmltablerow($_,"td");
+	}
+	$html .= "</tbody>\n";
+	$tmp = $self->formatoneline_htmltablerow($tailer,"th");
+	$html .= "<tfoot>" . $tmp . "</tfoot>\n";
+	$html .= "</table>\n";
+	$html .= "</body>\n";
+	$html .= "</html>\n";
+	return($html);
+}
+
+sub formatcurrweekreport() {
+	my($self) = shift;
+	my($format) = shift;
+	$format = "text" unless ( $format );
+	my($delimiter) = shift;
+	$delimiter = "," unless ( $delimiter );
+
+	my(%times) = $self->readcurrtimefile();
+
+	my($header,$body,$tailer) = $self->rawtimereport(\%times);
+	if ( $format =~ /text/ ) {
+		return $self->formatcurrweekreport_text($header,$body,$tailer);
+	}
+	elsif ( $format =~ /csv/ ) {
+		return $self->formatcurrweekreport_text($header,$body,$tailer,$delimiter);
+	}
+	elsif ( $format =~ /html/ ) {
+		return $self->formatcurrweekreport_html($header,$body,$tailer);
+	}
+	else {
+		return("");
+	}
+}
+
+
+sub reportmenu {
+	my($self) = shift;
+
+	my($secs) = time;
+	my($weeksec) = 60 * 60 * 24 * 7;
+
+	while(1) {
+		#my(%times) = $self->readcurrtimefile();
+	
+		print "\n\n";
+		my($year) = $self->year($secs);
+		my($week) = $self->week($secs);
+
+		$self->setcolor();
+		$self->setcolor(BLUE);
+		print $line . "\n";
+		$self->setcolor(RED);
+		print $self->formatcurrweekreport("text");
+		#print $self->currweekreport();
+		#print $self->rawweekreport();
+		$self->setcolor();
+
+		my($prompt) = "$year, w$week c(urrent) n(next) p(previous) q(uit) s(et date): ";
+		
+		$self->setcolor(BLUE);
+		print $line . "\n";
+		$self->setcolor();
+		print $prompt . "\n";
+		my $answer = $self->readkey;
+		
+		chomp($answer);
+		if ( $answer =~ /^c/i ) {
+			print "Current...\n";
+			$secs = time;
+		}
+		if ( $answer =~ /^n|^j/i ) {
+			print "Next...\n";
+			$secs += $weeksec;
+		}
+		elsif ( $answer =~ /^p|^k/i ) {
+			print "Previous...\n";
+			$secs -= $weeksec;
+		}
+		elsif ( $answer =~ /^q/i ) {
+			print "Quit...\n";	
+			exit(0);
+		}
+		elsif ( $answer =~ /^s/i ) {
+			print "Select...\n";	
+			my($date) = $self->prompt("Day (yyyymmdd): ");
+			next unless ( $date );
+			if ( $date =~ /^(\d\d\d\d)(\d\d)(\d\d)/ ) {
+				$secs = POSIX::mktime(0,0,0,$3,$2-1,$1-1900);
+				print scalar "Date is: " . localtime($secs) . "\n";
+			}
+		}
+		$self->setcurrtimefile($secs);
 	}
 }
 1;
