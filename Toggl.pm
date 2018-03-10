@@ -619,76 +619,6 @@ sub rawtimereport {
 	return(\@header,\@body,\@tailer);
 }
 
-sub timereport {
-	my($self) = shift;
-	my($hashp) = shift;
-	my(%times) = %$hashp;
-	
-	my(@dates) = $self->dates($hashp);
-
-
-	my(%proj);
-	while ( my($key,$value) = each(%times) ) {
-		#print "Key=$key\n";
-		#print Dumper(\$value);
-		my($date) = $value->{"date"};
-		my($start) = $value->{"start"};
-		my($end) = $value->{"end"};
-		my($proj) = $value->{"proj"};
-		$self->debug(9,"proj=$proj, start=$start, end=$end");
-		
-		my($dursec) = $self->convtime2dursec($start,$end);
-		#print "proj=$proj, date=$date, start=$start, end=$end, dursec=$dursec\n";
-		$proj{$proj}{$date} += $dursec;
-	}
-	#print Dumper(\%proj);
-
-	my($proj);
-	my($html);
-	my(%res);
-	my($header) = "";
-	my($res);
-	my(%projsum);
-	my(%datesum);
-	my($allsum) = 0;
-	foreach $proj ( sort keys %proj ) {
-		$header = sprintf("%-30.30s", "Project/Date");
-		my($projname) = $self->projid($proj);
-		$res = sprintf("%-30.30s", $proj . " " . $projname);
-
-		my($date);
-		foreach $date ( @dates ) {
-			$header .= sprintf("%9.9s", $date);
-			my($dursec) = $proj{$proj}{$date};
-			$dursec = 0 unless ( $dursec );
-			#next unless ( $dursec );
-			$allsum += $dursec;
-			$datesum{$date}+=$dursec;
-			$projsum{$proj}+=$dursec;
-			$dursec = 0 unless ( $dursec );
-			my($hour) = $self->convdursec2hour($dursec);
-			$res .= sprintf("%9.2f", $hour);
-		}
-		$header .= sprintf("%9.9s","Total");
-		$res .= sprintf("%9.2f",$self->convdursec2hour($projsum{$proj}));
-		$res{$proj} = $res;
-	}
-	my($tailer) = sprintf("%-30.30s","Totals");
-	foreach ( @dates ) {
-		$tailer .= sprintf("%9.2f",$self->convdursec2hour($datesum{$_}));
-	}
-	$tailer .= sprintf("%9.2f",$self->convdursec2hour($allsum));
-		
-
-	$res = $header . "\n";
-	foreach ( sort keys %res ) {
-		$res .= $res{$_} . "\n";
-	}
-	$res .= $tailer . "\n";
-
-	return($res);
-}
-	
 sub zerofilltime {
 	my($self) = shift;
 	my($time) = shift;
@@ -930,7 +860,7 @@ sub menu {
 	$self->setcolor(BLUE);
 	print $line . "\n";
 	$self->setcolor(RED);
-	print $self->timereport(\%times);
+	print $self->formatcurrweekreport("text");
 	$self->setcolor();
 	#
 	# Imort tmp file i.e the running timer
@@ -1015,13 +945,6 @@ sub menu {
 	elsif ( $answer =~ /^s/i ) {
 		$self->stoptimer();
 	}
-}
-
-sub currweekreport() {
-	my($self) = shift;
-
-	my(%times) = $self->readcurrtimefile();
-	return($self->rawtimereport(\%times));
 }
 
 sub formatoneline_text() {
@@ -1159,8 +1082,6 @@ sub reportmenu {
 		print $line . "\n";
 		$self->setcolor(RED);
 		print $self->formatcurrweekreport("text");
-		#print $self->currweekreport();
-		#print $self->rawweekreport();
 		$self->setcolor();
 
 		my($prompt) = "$year, w$week c(urrent) n(next) p(previous) q(uit) s(et date): ";
