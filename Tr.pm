@@ -193,8 +193,8 @@ sub new {
 		$self->trhome($ENV{TRHOME});
 	}
 
-	if ( defined($ENV{TRHOME}) ) {
-		$self->trproj($ENV{TRHOME});
+	if ( defined($ENV{TRPROJ}) ) {
+		$self->trproj($ENV{TRPROJ});
 	}
 
 
