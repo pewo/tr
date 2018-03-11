@@ -1,5 +1,5 @@
 #
-# Project file ( ~/.toggl/proj /proj/sysadm/toggl/proj.toggl )
+# Project file ( ~/.tr/my.proj /proj/sysadm/tr/sysadm.proj )
 #
 ```
 id=100
@@ -16,7 +16,7 @@ comment=no comment
 ```
 
 #
-# Time report file ( ~/.toggl/year/week )
+# Time report file ( ~/.tr/year/week )
 #
 ```
 date=20180221

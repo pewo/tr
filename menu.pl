@@ -3,18 +3,14 @@
 use strict;
 use Data::Dumper;
 use Getopt::Long;
-use Toggl;
+use Tr;
 
 my($debug) = 0;
-my($home) = $ENV{HOME};
-$ENV{TOGGLPROJ} = "/proj/sysadm/toggl:$home/.toggl";
 
 GetOptions (
 	"debug=i"  => \$debug
 ) or die("Error in command line arguments\n");
 
-print "Toggl Version: $Toggl::VERSION\n";
+my($tr) = new Tr( debug => $debug, testmode => 0, color => 1 );
 
-my($toggl) = new Toggl( debug => $debug, testmode => 0, color => 1 );
-
-while(1) { $toggl->menu(); }
+while(1) { $tr->menu(); }
