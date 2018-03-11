@@ -2,9 +2,8 @@ package Object;
 
 use strict;
 use Carp;
-use vars qw($VERSION);
 
-$VERSION = '0.01';
+our $VERSION = 'v0.0.1';
 
 sub set($$$) {
         my($self) = shift;
@@ -163,7 +162,7 @@ use open ':encoding(utf8)';
 binmode(STDOUT, ":utf8");
 
 
-our $VERSION = 'v0.1.1';
+our $VERSION = 'v0.2.0';
 our @ISA = qw(Object HotKey Color);
 use constant RED => "red";
 use constant BLUE  => "blue";
