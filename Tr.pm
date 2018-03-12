@@ -162,7 +162,7 @@ use open ':encoding(utf8)';
 binmode(STDOUT, ":utf8");
 
 
-our $VERSION = 'v0.2.0';
+our $VERSION = 'v0.2.1';
 our @ISA = qw(Object HotKey Color);
 use constant RED => "red";
 use constant BLUE  => "blue";
