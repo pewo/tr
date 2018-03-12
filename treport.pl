@@ -3,7 +3,9 @@
 use strict;
 use Data::Dumper;
 use Getopt::Long;
+use FindBin;
 use Tr;
+use lib $FindBin::Bin;
 
 my($date);
 my($debug) = 0;
