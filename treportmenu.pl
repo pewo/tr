@@ -4,8 +4,8 @@ use strict;
 use Data::Dumper;
 use Getopt::Long;
 use FindBin;
-use Tr;
 use lib $FindBin::Bin;
+use Tr;
 
 my($debug) = 0;
 GetOptions (
