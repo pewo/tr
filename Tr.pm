@@ -882,7 +882,7 @@ sub menu {
 	if ( $continue > 0 ) {
 		$prompt .= "(c)ontinue ";
 	}
-	$prompt .= "(e)dit (n)ew (p)rojects (q)uit";
+	$prompt .= "(e)dit (n)ew (p)rojects (q)uit (r)eport";
 	if ( $runningdate ) {
 		my($projid) = $running{1}{proj};
 		my($project) = $self->projid($projid);
@@ -949,6 +949,12 @@ sub menu {
 	}
 	elsif ( $answer =~ /^s/i ) {
 		$self->stoptimer();
+	}
+	elsif ( $answer =~ /^r/i ) {
+		$self->reportmenu();
+	}
+	elsif ( $answer =~ /^d/i ) {
+		print Dumper(\$self);
 	}
 }
 
@@ -1072,6 +1078,7 @@ sub formatcurrweekreport() {
 sub reportmenu {
 	my($self) = shift;
 
+
 	my($secs) = time;
 	my($weeksec) = 60 * 60 * 24 * 7;
 
@@ -1112,7 +1119,8 @@ sub reportmenu {
 		}
 		elsif ( $answer =~ /^q/i ) {
 			print "Quit...\n";	
-			exit(0);
+			$self->setcurrtimefile(time);
+			return();
 		}
 		elsif ( $answer =~ /^s/i ) {
 			print "Select...\n";	
