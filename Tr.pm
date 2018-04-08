@@ -186,18 +186,24 @@ sub new {
         while ( my($key,$val) = each(%hash) ) {
                 $self->set($key,$val);
         }
-	$self->currweek($self->week());
-	$self->curryear($self->year());
 
+	#
+	# Where to save timereport files
+	#
 	if ( defined($ENV{TRHOME}) ) {
 		$self->trhome($ENV{TRHOME});
 	}
 
+	#
+	# Where is the project files located
+	#
 	if ( defined($ENV{TRPROJ}) ) {
 		$self->trproj($ENV{TRPROJ});
 	}
 
-
+	#
+	# Check that the trhome directory is defined
+	#
 	my($trhome) = $self->trhome();
 	unless ( $trhome ) {
 		croak "trhome is not defined\n";
@@ -210,10 +216,36 @@ sub new {
 		$self->trhome($trhome);
 	}
 
+	#
+	# Check if the trhome directory exists
+	#
 	if ( ! -d $trhome ) {
 		chdir($trhome);
 		die "chdir($trhome): $!\n";
 	}
+
+	unless ( $self->trproj() ) {
+		$self->trproj($self->trhome());
+	}
+
+	my(%projects) = $self->readprojfiles();
+	$self->projects(\%projects);
+
+
+	$self->resettime();
+
+	#die Dumper(\$self);
+        return($self);
+}
+
+#
+# Initiate all timerelated variables and filenames
+#
+sub resettime() {
+	my($self) = shift;
+
+	$self->currweek($self->week());
+	$self->curryear($self->year());
 
 	my($curryeardir) = $self->trhome() . "/" . $self->curryear();
 	$self->curryeardir($curryeardir);
@@ -224,22 +256,14 @@ sub new {
 		}
 	}
 	
-	#my($currtimefile) = $self->trhome() . "/" . $self->curryear() . "/" . $self->week . ".tf";
 	my($currtimefile) = $self->setcurrtimefile();
 	$self->currtimefile($currtimefile);
 	$self->currtimefiletmp($currtimefile . ".tmp");
-
-	unless ( $self->trproj() ) {
-		$self->trproj($self->trhome());
-	}
-
-	my(%projects) = $self->readprojfiles();
-	$self->projects(\%projects);
-
-	#die Dumper(\$self);
-        return($self);
 }
 
+#
+# Set the current timefile to now or specified time(Epoch)
+#
 sub setcurrtimefile() {
 	my($self) = shift;
 	my($secs) = shift;
@@ -251,15 +275,9 @@ sub setcurrtimefile() {
 	return($currtimefile);
 }
 
-sub changecurrtimefile() {
-	my($self) = shift;
-	my($secs) = shift;
-	$secs = 0 unless ( defined($secs) );
-
-	my($newtime) = time + $secs;
-	$self->setcurrtimefile($newtime);
-}
-
+#
+# Send debug message to stdout
+#
 sub debug {
 	my($self) = shift;
 	my($level) = shift;
@@ -274,6 +292,9 @@ sub debug {
 	print "DEBUG($level): " . localtime(time) . " $str ***\n";
 }
 
+#
+# Simple accessor method to set/get values in object
+#
 sub _accessor {
 	my($self) = shift;
 	my($key) = shift;
@@ -738,6 +759,12 @@ sub starttimer {
 	my($projid) = shift;
 	my($comment) = shift;
 
+	if ( $self->runningtimer() ) {
+		$self->stoptimer();
+	}
+
+	$self->resettime();
+
 	my($text) = $self->projid($projid);
 	my($date,$time) = $self->timestamp();
 	my($tftmp) = $self->currtimefiletmp();
@@ -747,9 +774,6 @@ sub starttimer {
 	$res .= "proj=$projid ($text)\n";
 	$res .= "comment=$comment\n";
 	
-	if ( $self->runningtimer() ) {
-		$self->stoptimer();
-	}
 	if ( open(TF,">> $tftmp") ) {
 		print TF $res;
 		close(TF);
@@ -970,6 +994,9 @@ sub formatoneline_text() {
 
 	my($res) = undef;
 	foreach ( @$ap ) {
+		unless ( $_ =~ /\D/ ) {
+			$_ = sprintf("%.2f",$_);
+		}
 		my($indent) = 9;
 		$indent = -30 unless ( $res );
 		if ( defined($delimiter) ) {
