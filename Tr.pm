@@ -164,10 +164,15 @@ binmode(STDOUT, ":utf8");
 
 our $VERSION = 'v0.2.1';
 our @ISA = qw(Object HotKey Color);
-use constant RED => "red";
-use constant BLUE  => "blue";
-use constant GREEN => "green";
-use constant LIGHTGREEN => "lightgreen";
+#use constant RED => "red";
+#use constant BLUE  => "blue";
+#use constant GREEN => "green";
+#use constant LIGHTGREEN => "lightgreen";
+use constant REPORT1 => "red";
+use constant REPORT2 => "yellow";
+use constant LINECOLOR  => "blue";
+use constant HISTORY1 => "green";
+use constant HISTORY2 => "lightgreen";
 
 our $line = "===============================================================================";
 
@@ -586,6 +591,7 @@ sub rawtimereport {
 	#
 
 	my(@dates) = $self->dates($hashp);
+	#print "DEBUG: " . Dumper(\@dates) . "\n";
 
 	#print $self->timereport(\%times);
 
@@ -610,12 +616,25 @@ sub rawtimereport {
 	my(@body);
 	my(%projsum);
 	my(%datesum);
+	my(%rowsum);
 	my($allsum) = 0;
-	push(@header,"Project/Date");
+	my($niceheader) = "Project/Date (" . $self->year . "-W" . $self->week()  . ")";
+	push(@header,$niceheader);
+	my(%projline);
 	my($date);
 	foreach $date ( @dates ) {
-		push(@header,$date);
+		my($headerdate) = $date;
+		if ( $headerdate =~ /^(\d\d\d\d)(\d\d)(\d\d)$/ ) {
+			my($year) = $1;
+			my($month) = $2;
+			my($day) = $3;
+			my($monthname) = POSIX::strftime("%b",0,0,0,$day,$month-1,$year-1900);
+		#	$headerdate = sprintf("%3.3s",$dayname);
+			$headerdate = sprintf("%d %3.3s",$day,$monthname);
+		}
+		push(@header,$headerdate);
 	}
+
 	foreach $proj ( sort keys %proj ) {
 		my($projname) = $self->projid($proj);
 		my(@line) = ();
@@ -632,15 +651,52 @@ sub rawtimereport {
 			my($hour) = $self->convdursec2hour($dursec);
 			push(@line,$hour);
 		}
-		push(@line,$self->convdursec2hour($projsum{$proj}));
+		$rowsum{$proj} = $self->convdursec2hour($projsum{$proj});
+		push(@line,$rowsum{$proj});
 		push(@body,\@line);
+		#
+		# Add a reference to @line with $proj, to be used
+		# when calculating percent / project below...
+		#
+		$projline{$proj}=\@line;
 	}
+
+	# 
+	# Calculate the percent of work per project
+	# This is not the best way of doing this, but it works...
+	# TIMTOWTDI
+	#
+	my($toti) = 0;
+	foreach $proj ( sort keys %proj ) {
+		$toti += $rowsum{$proj};
+	}
+	foreach $proj ( sort keys %proj) {
+		my($proc) = (100 * $rowsum{$proj} ) / $toti;
+		my($ap) = $projline{$proj};
+		push(@$ap,sprintf("%.1f%%",$proc));
+	}
+
 	push(@header,"Total");
+	push(@header,"%");
 	push(@tailer,"Totals");
+
+	$toti = 0;
 	foreach ( @dates ) {
+		$toti += $datesum{$_};
 		push(@tailer,$self->convdursec2hour($datesum{$_}));
 	}
 	push(@tailer,$self->convdursec2hour($allsum));
+
+	# 
+	# Calculate percent per day
+	# Skip for now, does not look good
+	#my(@line);
+	#push(@line,"Percent");
+	#foreach ( @dates ) {
+	#	my($proc) = (100 * $datesum{$_}) / $toti;
+	#	push(@line,sprintf("%.1f%%",$proc));
+	#}
+	#push(@body,\@line);
 		
 	return(\@header,\@body,\@tailer);
 }
@@ -835,7 +891,7 @@ sub menu {
 
 	print "\n\n";
 
-	$self->setcolor(BLUE);
+	$self->setcolor(LINECOLOR);
 	print $line . "\n";
 	$self->setcolor();
 	my(%date);
@@ -854,17 +910,17 @@ sub menu {
 	my(%continue);
 	my($continue) = 0;
 	my($colorshift) = 0;
-	$self->setcolor(GREEN);
+	$self->setcolor(HISTORY1);
 	foreach $date ( sort keys %date ) {
 		if ( $prevdate ne $date ) {
 			$colorshift++;
 			$colorshift = 0 if ( $colorshift > 1 );
 			$prevdate = $date;
 			if ( $colorshift ) {
-				$self->setcolor(LIGHTGREEN);
+				$self->setcolor(HISTORY2);
 			}
 			else {
-				$self->setcolor(GREEN);
+				$self->setcolor(HISTORY1);
 			}
 			print "Date: $date\n";
 		}
@@ -886,9 +942,9 @@ sub menu {
 		}	
 	}
 	$self->setcolor();
-	$self->setcolor(BLUE);
+	$self->setcolor(LINECOLOR);
 	print $line . "\n";
-	$self->setcolor(RED);
+	$self->setcolor(REPORT1);
 	print $self->formatcurrweekreport("text");
 	$self->setcolor();
 	#
@@ -897,9 +953,9 @@ sub menu {
 	my(%running) = $self->readtimefile($self->currtimefiletmp());
 	my($runningdate) = $running{1}{date};
 	my($year,$now) = $self->timestamp();
-	#$self->setcolor(RED);
+	#$self->setcolor(REPORT1);
 	#print $line . "\n";
-	$self->setcolor(RED);
+	$self->setcolor(REPORT1);
 	my($prompt) = "$now ";
 
 
@@ -914,15 +970,15 @@ sub menu {
 		my($start) = $running{1}{start};
 		my($secs) = $self->convtime2dursec($start,$now);
 		my($min) = int($secs / 60);
-		$self->setcolor(BLUE);
+		$self->setcolor(LINECOLOR);
 		print $line . "\n";
-		$self->setcolor(RED);
+		$self->setcolor(REPORT1);
 		print "Timer is running since $start($min min) for projid $projid\n";
 		print "Doing \"$comment\" in \"$project\"\n";
 		$prompt .= " (s)top (t)empfile:";
 	}
 	
-	$self->setcolor(BLUE);
+	$self->setcolor(LINECOLOR);
 	print $line . "\n";
 	$self->setcolor();
 	print $prompt . "\n";
@@ -993,17 +1049,22 @@ sub formatoneline_text() {
 	# fields ar formated as %9.9s
 
 	my($res) = undef;
-	foreach ( @$ap ) {
-		unless ( $_ =~ /\D/ ) {
-			$_ = sprintf("%.2f",$_);
+	my($item);
+	foreach $item ( @$ap ) {
+		if ( $item =~ /^\d+$|^\d+\.\d+$/ ) { # Integer or float...
+			if ( $item < 100 ) {  # Excluding date, i.e 20180304...
+				my($olditem) = $item;
+				$item = sprintf("%.2f",$item);
+				$self->debug(6,"reformatting [$olditem] to [$item]...");
+			}
 		}
-		my($indent) = 9;
+		my($indent) = 7; # Changed from 9 to 7 when changed dateformat to d/m
 		$indent = -30 unless ( $res );
 		if ( defined($delimiter) ) {
-			$res .= $_ . $delimiter;
+			$res .= $item . $delimiter;
 		}
 		else {
-			$res .= sprintf("%*.*s",$indent,abs($indent),$_);
+			$res .= sprintf("%*.*s",$indent,abs($indent),$item);
 		}
 	}
 	return($res);
@@ -1017,10 +1078,17 @@ sub formatcurrweekreport_text() {
 	my($delimiter) = shift;
 
 	my($res) = $self->formatoneline_text($header,$delimiter) . "\n";
+	#my($res) = "";
+	#foreach ( @$header ) {
+	#	$res .= $self->formatoneline_text($_,$delimiter) . "\n";
+	#}
 	foreach ( @$body ) {
 		$res .= $self->formatoneline_text($_,$delimiter) . "\n";
 	}
 	$res .= $self->formatoneline_text($tailer,$delimiter) . "\n";
+	#foreach ( @$tailer ) {
+	#	$res .= $self->formatoneline_text($_,$delimiter) . "\n";
+	#}
 	return($res);
 }
 
@@ -1117,15 +1185,15 @@ sub reportmenu {
 		my($week) = $self->week($secs);
 
 		$self->setcolor();
-		$self->setcolor(BLUE);
+		$self->setcolor(LINECOLOR);
 		print $line . "\n";
-		$self->setcolor(RED);
+		$self->setcolor(REPORT1);
 		print $self->formatcurrweekreport("text");
 		$self->setcolor();
 
-		my($prompt) = "$year, w$week c(urrent) n(next) p(previous) q(uit) s(et date): ";
+		my($prompt) = "$year-W$week c(urrent) n(next) p(previous) q(uit) s(et date): ";
 		
-		$self->setcolor(BLUE);
+		$self->setcolor(LINECOLOR);
 		print $line . "\n";
 		$self->setcolor();
 		print $prompt . "\n";
