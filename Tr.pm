@@ -160,6 +160,7 @@ use POSIX;
 use utf8;
 use open ':encoding(utf8)';
 binmode(STDOUT, ":utf8");
+binmode(STDIN,  ":utf8");
 
 
 our $VERSION = 'v0.2.1';
