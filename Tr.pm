@@ -373,13 +373,22 @@ sub readfile {
 	my($file) = shift;
 	my(@content) = ();
 
-	if ( open(IN,"<$file") ) {
-		$self->debug(5,"Reading $file");
-		foreach ( <IN> ) {
+	if ( defined($file) ) {	# If we have a file as argument
+		if ( open(IN,"<$file") ) {
+			$self->debug(5,"Reading $file");
+			foreach ( <IN> ) {
+				chomp;
+				push(@content,$_);
+			}
+			close(IN);
+		}
+	}
+	else { # If file is not defined, read from STDIN
+		$self->debug(5,"Reading from STDIN");
+		foreach ( <STDIN> ) {
 			chomp;
 			push(@content,$_);
 		}
-		close(IN);
 	}
 	return(@content);
 }	
@@ -885,7 +894,15 @@ sub edit() {
 
 sub menu {
 	my($self) = shift;
-	my(%times) = $self->readcurrtimefile();
+	my(%times) = @_;
+	my($external) = 0;
+	foreach ( keys %times ) {
+		$external++;
+	}
+	unless ( $external ) {
+		%times = $self->readcurrtimefile();
+	}
+	#print "DEBUG: " . Dumper(\%times) . "\n";
 	
 	my(@dates) = $self->dates(\%times);
 	my($latestday) = $dates[-1];
@@ -946,6 +963,9 @@ sub menu {
 	$self->setcolor(LINECOLOR);
 	print $line . "\n";
 	$self->setcolor(REPORT1);
+	if ( $external ) { # I.e report on multiple input files
+		exit(0);
+	}
 	print $self->formatcurrweekreport("text");
 	$self->setcolor();
 	#
