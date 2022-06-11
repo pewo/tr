@@ -117,6 +117,8 @@ our @ISA = qw(Exporter);
 our @EXPORT = qw(cbreak cooked readkey);
 
 use strict;
+use Term::ReadKey;
+use Time::HiRes qw(usleep);
 use POSIX qw(:termios_h);
 my ($term, $oterm, $echo, $noecho, $fd_stdin);
 
@@ -140,7 +142,31 @@ sub cooked {
     $term->setattr($fd_stdin, TCSANOW);
 }
 
+sub readkey_bash {
+    if ( open(CHAR,'/usr/bin/read -a bepa -s -n 1 && /usr/bin/echo $bepa |') ) {
+        my($char);
+        read(CHAR,$char,1);
+        close(CHAR);
+        return($char);
+    }
+    return(undef);
+}
+
 sub readkey {
+
+    ReadMode 3; # Turn off controls keys
+    my $key;
+    while (not defined ($key = ReadKey(-1))) {
+        usleep(100000);
+        #print "wsaiting...\n";
+        # No key yet
+    }
+    #print "Get key $key\n";
+    ReadMode 0; # Reset tty mode before exiting
+    return $key;
+
+}
+sub readkey_FCS {
     my $key = '';
     cbreak( );
     sysread(STDIN, $key, 1);
